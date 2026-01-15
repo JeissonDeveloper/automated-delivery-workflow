@@ -418,17 +418,21 @@ function animarCampoCompletado(id, valor) {
 }
 
 // ============================================================================
-// FIRMAS - CORREGIDO: Evita scroll Y apertura de teclado
+// FIRMAS NIVEL 3 - PROFESIONAL
+// Trazo suave, presión variable, efecto tinta real
 // ============================================================================
 function setupCanvas(id) {
     const c = document.getElementById(id);
     const ctx = c.getContext("2d");
     let drawing = false;
     let wasUsed = false;
-    let imageData = null; // Guardar firma antes de resize
+    let imageData = null;
+    
+    // Variables para trazo suave
+    let points = [];
+    let lastPoint = null;
     
     const resize = () => {
-        // Guardar la firma antes de redimensionar
         if (wasUsed && c.width > 0 && c.height > 0) {
             try {
                 imageData = ctx.getImageData(0, 0, c.width, c.height);
@@ -440,7 +444,6 @@ function setupCanvas(id) {
         c.width = c.offsetWidth; 
         c.height = 140;
         
-        // Restaurar la firma después de redimensionar
         if (imageData) {
             try {
                 ctx.putImageData(imageData, 0, 0);
@@ -451,12 +454,31 @@ function setupCanvas(id) {
     };
     
     resize();
-    
-    // Desactivar resize automático que borra la firma
-    // window.addEventListener('resize', resize);
+
+    // Función para dibujar línea suave con presión variable
+    const drawSmoothLine = (x1, y1, x2, y2, velocity) => {
+        // Calcular grosor basado en velocidad (simula presión)
+        const minWidth = 1.2;
+        const maxWidth = 2.5;
+        const velocityFactor = Math.min(velocity / 10, 1);
+        const lineWidth = maxWidth - (velocityFactor * (maxWidth - minWidth));
+        
+        ctx.lineWidth = lineWidth;
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+        ctx.strokeStyle = "#1a1a1a"; // Negro tinta (más natural)
+        
+        // Usar curva cuadrática para suavizar
+        const cp1x = (x1 + x2) / 2;
+        const cp1y = (y1 + y2) / 2;
+        
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        ctx.quadraticCurveTo(cp1x, cp1y, x2, y2);
+        ctx.stroke();
+    };
 
     const start = (e) => {
-        // IMPORTANTE: Evitar que se abra el teclado
         if (e.target === c) {
             e.target.style.userSelect = 'none';
             e.target.style.webkitUserSelect = 'none';
@@ -467,12 +489,19 @@ function setupCanvas(id) {
         const x = (e.clientX || e.touches?.[0]?.clientX) - rect.left;
         const y = (e.clientY || e.touches?.[0]?.clientY) - rect.top;
         
-        // SOLO activar si el toque está DENTRO del canvas
         if (x >= 0 && x <= c.width && y >= 0 && y <= c.height) {
             drawing = true; 
             wasUsed = true;
+            
+            // Inicializar puntos para trazo suave
+            points = [{x, y, time: Date.now()}];
+            lastPoint = {x, y};
+            
+            // Dibujar punto inicial
             ctx.beginPath();
-            ctx.moveTo(x, y);
+            ctx.arc(x, y, 1.2, 0, Math.PI * 2);
+            ctx.fillStyle = "#1a1a1a";
+            ctx.fill();
             
             c.classList.add('canvas-firmando');
             mostrarMensajeFirma(c.parentElement, true);
@@ -488,12 +517,27 @@ function setupCanvas(id) {
         const rect = c.getBoundingClientRect();
         const x = (e.clientX || e.touches?.[0]?.clientX) - rect.left;
         const y = (e.clientY || e.touches?.[0]?.clientY) - rect.top;
+        const time = Date.now();
         
-        ctx.lineWidth = 2; 
-        ctx.lineCap = "round"; 
-        ctx.strokeStyle = "#000";
-        ctx.lineTo(x, y); 
-        ctx.stroke(); 
+        // Calcular velocidad para simular presión
+        const dx = x - lastPoint.x;
+        const dy = y - lastPoint.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        const timeDiff = time - (points[points.length - 1]?.time || time);
+        const velocity = distance / (timeDiff || 1);
+        
+        // Dibujar línea suave
+        drawSmoothLine(lastPoint.x, lastPoint.y, x, y, velocity);
+        
+        // Actualizar puntos
+        points.push({x, y, time});
+        lastPoint = {x, y};
+        
+        // Mantener solo últimos 3 puntos para optimización
+        if (points.length > 3) {
+            points.shift();
+        }
+        
         e.preventDefault();
         e.stopPropagation();
     };
@@ -501,6 +545,9 @@ function setupCanvas(id) {
     const end = (e) => { 
         if (drawing) {
             drawing = false;
+            points = [];
+            lastPoint = null;
+            
             c.classList.remove('canvas-firmando');
             mostrarMensajeFirma(c.parentElement, false);
             mostrarCheckFirma(c.parentElement);
@@ -521,7 +568,7 @@ function setupCanvas(id) {
     c.addEventListener("touchend", end, {passive:false});
     c.addEventListener("touchcancel", end, {passive:false});
     
-    // Prevenir gestos que puedan abrir teclado
+    // Prevenir gestos
     c.addEventListener("gesturestart", (e) => e.preventDefault());
     c.addEventListener("gesturechange", (e) => e.preventDefault());
     c.addEventListener("gestureend", (e) => e.preventDefault());
@@ -534,6 +581,8 @@ function setupCanvas(id) {
             wasUsed = false; 
             drawing = false;
             imageData = null;
+            points = [];
+            lastPoint = null;
             quitarCheckFirma(c.parentElement); 
         }
     };
