@@ -422,7 +422,6 @@ function animarCampoCompletado(id, valor) {
 // - Suavizado Catmull-Rom (trazo perfecto)
 // - Estabilización de temblor
 // - Simulación de tinta con difuminado
-// - Ajuste automático de tamaño
 // - Grosor Fino Visible: 1.0-1.9px
 // ============================================================================
 function setupCanvas(id) {
@@ -435,10 +434,6 @@ function setupCanvas(id) {
     // Variables para trazo suave y estabilización
     let points = [];
     let lastPoint = null;
-    
-    // Variables para auto-ajuste de tamaño
-    let minX = Infinity, minY = Infinity;
-    let maxX = -Infinity, maxY = -Infinity;
     
     const resize = () => {
         if (wasUsed && c.width > 0 && c.height > 0) {
@@ -530,12 +525,6 @@ function setupCanvas(id) {
             const y2 = catmullRomSpline(p0.y, p1.y, p2.y, p3.y, t2);
             
             drawInkStroke(x1, y1, x2, y2, pressure);
-            
-            // Actualizar límites para auto-ajuste
-            minX = Math.min(minX, x1, x2);
-            minY = Math.min(minY, y1, y2);
-            maxX = Math.max(maxX, x1, x2);
-            maxY = Math.max(maxY, y1, y2);
         }
     };
 
@@ -553,9 +542,6 @@ function setupCanvas(id) {
         if (x >= 0 && x <= c.width && y >= 0 && y <= c.height) {
             drawing = true; 
             wasUsed = true;
-            
-            // Resetear límites para auto-ajuste
-            minX = x; minY = y; maxX = x; maxY = y;
             
             // Inicializar puntos
             const point = {x, y, time: Date.now()};
@@ -630,10 +616,6 @@ function setupCanvas(id) {
     const end = (e) => { 
         if (drawing) {
             drawing = false;
-            
-            // Auto-ajuste de tamaño (si firma es muy pequeña/grande)
-            autoAdjustSignature();
-            
             points = [];
             lastPoint = null;
             
@@ -642,52 +624,6 @@ function setupCanvas(id) {
             mostrarCheckFirma(c.parentElement);
             actualizarBarraProgreso();
             e.preventDefault();
-        }
-    };
-
-    // Ajuste automático de tamaño de firma
-    const autoAdjustSignature = () => {
-        const padding = 10;
-        const signatureWidth = maxX - minX;
-        const signatureHeight = maxY - minY;
-        
-        // Si la firma es muy pequeña o muy grande, ajustar
-        const minSize = 50;
-        const optimalWidth = c.width * 0.7; // 70% del ancho
-        
-        if (signatureWidth < minSize || signatureWidth < optimalWidth * 0.4) {
-            // Firma muy pequeña - escalar
-            const tempCanvas = document.createElement('canvas');
-            const tempCtx = tempCanvas.getContext('2d');
-            tempCanvas.width = c.width;
-            tempCanvas.height = c.height;
-            
-            try {
-                // Copiar firma actual
-                tempCtx.drawImage(c, 0, 0);
-                
-                // Calcular escala
-                const scale = Math.min(
-                    optimalWidth / signatureWidth,
-                    (c.height - padding * 2) / signatureHeight
-                );
-                
-                // Limpiar y redibujar escalado y centrado
-                ctx.clearRect(0, 0, c.width, c.height);
-                
-                const scaledWidth = signatureWidth * scale;
-                const scaledHeight = signatureHeight * scale;
-                const offsetX = (c.width - scaledWidth) / 2 - minX * scale;
-                const offsetY = (c.height - scaledHeight) / 2 - minY * scale;
-                
-                ctx.save();
-                ctx.translate(offsetX, offsetY);
-                ctx.scale(scale, scale);
-                ctx.drawImage(tempCanvas, 0, 0);
-                ctx.restore();
-            } catch(e) {
-                console.log("No se pudo ajustar tamaño de firma");
-            }
         }
     };
 
@@ -718,8 +654,6 @@ function setupCanvas(id) {
             imageData = null;
             points = [];
             lastPoint = null;
-            minX = Infinity; minY = Infinity;
-            maxX = -Infinity; maxY = -Infinity;
             quitarCheckFirma(c.parentElement); 
         }
     };
