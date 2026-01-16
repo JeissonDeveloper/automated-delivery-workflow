@@ -418,8 +418,11 @@ function animarCampoCompletado(id, valor) {
 }
 
 // ============================================================================
-// FIRMAS NIVEL 3 - PROFESIONAL
-// Trazo suave, presión variable, efecto tinta real
+// FIRMAS NIVEL 4 - ULTRA PROFESIONAL
+// - Suavizado Catmull-Rom (trazo perfecto)
+// - Estabilización de temblor
+// - Simulación de tinta con difuminado
+// - Grosor Fino Visible: 1.0-1.9px
 // ============================================================================
 function setupCanvas(id) {
     const c = document.getElementById(id);
@@ -428,7 +431,7 @@ function setupCanvas(id) {
     let wasUsed = false;
     let imageData = null;
     
-    // Variables para trazo suave
+    // Variables para trazo suave y estabilización
     let points = [];
     let lastPoint = null;
     
@@ -437,7 +440,7 @@ function setupCanvas(id) {
             try {
                 imageData = ctx.getImageData(0, 0, c.width, c.height);
             } catch(e) {
-                console.log("No se pudo guardar firma antes de resize");
+                console.log("No se pudo guardar firma");
             }
         }
         
@@ -448,34 +451,81 @@ function setupCanvas(id) {
             try {
                 ctx.putImageData(imageData, 0, 0);
             } catch(e) {
-                console.log("No se pudo restaurar firma después de resize");
+                console.log("No se pudo restaurar firma");
             }
         }
     };
     
     resize();
 
-    // Función para dibujar línea suave con presión variable
-    const drawSmoothLine = (x1, y1, x2, y2, velocity) => {
-        // Calcular grosor basado en velocidad (simula presión)
-        const minWidth = 1.2;
-        const maxWidth = 2.5;
-        const velocityFactor = Math.min(velocity / 10, 1);
-        const lineWidth = maxWidth - (velocityFactor * (maxWidth - minWidth));
+    // Función de interpolación Catmull-Rom para trazo súper suave
+    const catmullRomSpline = (p0, p1, p2, p3, t) => {
+        const v0 = (p2 - p0) * 0.5;
+        const v1 = (p3 - p1) * 0.5;
+        const t2 = t * t;
+        const t3 = t * t2;
         
+        return (2 * p1 - 2 * p2 + v0 + v1) * t3 +
+               (-3 * p1 + 3 * p2 - 2 * v0 - v1) * t2 +
+               v0 * t + p1;
+    };
+
+    // Estabilización de temblor (filtro de media móvil)
+    const stabilizePoint = (newPoint) => {
+        if (points.length < 2) return newPoint;
+        
+        // Promedio de últimos 3 puntos para suavizar temblor
+        const recentPoints = points.slice(-2);
+        const avgX = (recentPoints.reduce((sum, p) => sum + p.x, 0) + newPoint.x) / 3;
+        const avgY = (recentPoints.reduce((sum, p) => sum + p.y, 0) + newPoint.y) / 3;
+        
+        return {x: avgX, y: avgY, time: newPoint.time};
+    };
+
+    // Dibujar con simulación de tinta (difuminado sutil)
+    const drawInkStroke = (x1, y1, x2, y2, pressure) => {
+        // Grosor Fino Visible basado en presión
+        const minWidth = 1.0;
+        const maxWidth = 1.9;
+        const lineWidth = minWidth + (pressure * (maxWidth - minWidth));
+        
+        // Color tinta con leve transparencia para efecto difuminado
+        ctx.strokeStyle = "rgba(26, 26, 26, 0.95)"; // Negro tinta semi-transparente
         ctx.lineWidth = lineWidth;
         ctx.lineCap = "round";
         ctx.lineJoin = "round";
-        ctx.strokeStyle = "#1a1a1a"; // Negro tinta (más natural)
         
-        // Usar curva cuadrática para suavizar
-        const cp1x = (x1 + x2) / 2;
-        const cp1y = (y1 + y2) / 2;
-        
+        // Dibujar línea principal
         ctx.beginPath();
         ctx.moveTo(x1, y1);
-        ctx.quadraticCurveTo(cp1x, cp1y, x2, y2);
+        ctx.lineTo(x2, y2);
         ctx.stroke();
+        
+        // Efecto de difuminado (borde más suave)
+        ctx.strokeStyle = "rgba(26, 26, 26, 0.15)";
+        ctx.lineWidth = lineWidth + 0.8;
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y2);
+        ctx.stroke();
+    };
+
+    // Dibujar segmento con interpolación Catmull-Rom
+    const drawSmoothSegment = (p0, p1, p2, p3, velocity) => {
+        const steps = 8; // Número de puntos interpolados
+        const pressure = Math.max(0, Math.min(1, 1 - (velocity / 15)));
+        
+        for (let i = 0; i < steps; i++) {
+            const t1 = i / steps;
+            const t2 = (i + 1) / steps;
+            
+            const x1 = catmullRomSpline(p0.x, p1.x, p2.x, p3.x, t1);
+            const y1 = catmullRomSpline(p0.y, p1.y, p2.y, p3.y, t1);
+            const x2 = catmullRomSpline(p0.x, p1.x, p2.x, p3.x, t2);
+            const y2 = catmullRomSpline(p0.y, p1.y, p2.y, p3.y, t2);
+            
+            drawInkStroke(x1, y1, x2, y2, pressure);
+        }
     };
 
     const start = (e) => {
@@ -493,14 +543,21 @@ function setupCanvas(id) {
             drawing = true; 
             wasUsed = true;
             
-            // Inicializar puntos para trazo suave
-            points = [{x, y, time: Date.now()}];
-            lastPoint = {x, y};
+            // Inicializar puntos
+            const point = {x, y, time: Date.now()};
+            points = [point, point, point, point]; // Duplicar para Catmull-Rom
+            lastPoint = point;
             
-            // Dibujar punto inicial
+            // Dibujar punto inicial con efecto de tinta
+            ctx.fillStyle = "rgba(26, 26, 26, 0.95)";
             ctx.beginPath();
-            ctx.arc(x, y, 1.2, 0, Math.PI * 2);
-            ctx.fillStyle = "#1a1a1a";
+            ctx.arc(x, y, 1.0, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Difuminado del punto inicial
+            ctx.fillStyle = "rgba(26, 26, 26, 0.15)";
+            ctx.beginPath();
+            ctx.arc(x, y, 1.8, 0, Math.PI * 2);
             ctx.fill();
             
             c.classList.add('canvas-firmando');
@@ -519,22 +576,36 @@ function setupCanvas(id) {
         const y = (e.clientY || e.touches?.[0]?.clientY) - rect.top;
         const time = Date.now();
         
-        // Calcular velocidad para simular presión
-        const dx = x - lastPoint.x;
-        const dy = y - lastPoint.y;
+        // Crear nuevo punto
+        const newPoint = {x, y, time};
+        
+        // Estabilizar para eliminar temblor
+        const stabilized = stabilizePoint(newPoint);
+        
+        // Calcular velocidad para presión
+        const dx = stabilized.x - lastPoint.x;
+        const dy = stabilized.y - lastPoint.y;
         const distance = Math.sqrt(dx * dx + dy * dy);
-        const timeDiff = time - (points[points.length - 1]?.time || time);
+        const timeDiff = time - lastPoint.time;
         const velocity = distance / (timeDiff || 1);
         
-        // Dibujar línea suave
-        drawSmoothLine(lastPoint.x, lastPoint.y, x, y, velocity);
+        // Agregar punto estabilizado
+        points.push(stabilized);
         
-        // Actualizar puntos
-        points.push({x, y, time});
-        lastPoint = {x, y};
+        // Dibujar con interpolación Catmull-Rom si hay suficientes puntos
+        if (points.length >= 4) {
+            const p0 = points[points.length - 4];
+            const p1 = points[points.length - 3];
+            const p2 = points[points.length - 2];
+            const p3 = points[points.length - 1];
+            
+            drawSmoothSegment(p0, p1, p2, p3, velocity);
+        }
         
-        // Mantener solo últimos 3 puntos para optimización
-        if (points.length > 3) {
+        lastPoint = stabilized;
+        
+        // Mantener ventana deslizante de puntos
+        if (points.length > 8) {
             points.shift();
         }
         
