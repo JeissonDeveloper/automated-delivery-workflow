@@ -3,14 +3,14 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
-  <title>RAMO - Acta de Entrega</title>
+  <title>Acta de Entrega - RAMO</title>
   <link rel="stylesheet" href="estilos.css">
 </head>
 <body>
 
 <div class="main-container">
     <header>
-        <img src="logo-ramo.png" alt="Logo RAMO" class="logo" />
+        <img src="logo-ramo.png" alt="Logo RAMO" class="logo" onerror="this.style.display='none'"/>
         <h1>Acta de Entrega de Dispositivos Móviles</h1>
     </header>
 
@@ -29,16 +29,18 @@
         <div class="seccion-header"><span class="numero">1</span> Datos de Quien Recibe</div>
 
         <div class="grid-2">
-            <div><label>Ciudad:</label><input type="text" name="ciudad" required placeholder="Ej: Bogotá"></div>
+            <div><label>Ciudad:</label><input type="text" id="ciudad" name="ciudad" required value="Bogotá"></div>
             <div><label>Fecha:</label><input type="text" id="fecha" name="fecha" readonly class="input-readonly"></div>
         </div>
 
         <label>Cédula (Quien Recibe):</label>
         <div class="input-group-search">
-            <input type="number" id="cedula" name="cedula" inputmode="numeric" required placeholder="Sin puntos">
-            <button type="button" class="btn-search" onclick="buscarData('colab')">🔍 Buscar</button>
+            <input type="text" id="cedula" name="cedula" inputmode="numeric" required placeholder="Sin puntos">
+            <button type="button" class="btn-search" onclick="buscarColaborador()">
+                <span id="icono-busqueda-colaborador">🔍</span> Buscar
+            </button>
         </div>
-        <div id="msg-colab" class="msg-estado"></div>
+        <div id="msg-colaborador" class="msg-estado"></div>
 
         <label>Nombre Completo:</label><input type="text" id="nombre_colaborador" name="nombre_colaborador" readonly class="input-readonly" required>
         
@@ -51,7 +53,7 @@
         <input type="email" id="correo_colaborador" name="correo_colaborador" required placeholder="nombre@ramo.com.co">
 
         <div class="grid-2">
-            <div><label>Código SAP:</label><input type="number" id="codigo_sap" name="codigo_sap" inputmode="numeric" required></div>
+            <div><label>Código SAP:</label><input type="text" id="codigo_sap" name="codigo_sap" inputmode="numeric" required placeholder="Ej: 12345"></div>
             <div><label>Zona:</label><input type="text" id="zona_colaborador" name="zona_colaborador" required></div>
         </div>
 
@@ -62,18 +64,21 @@
             <option value="Preventa">Preventa</option>
             <option value="Canal Moderno">Canal Moderno</option>
             <option value="Logística">Logística</option>
+            <option value="Eagle">Eagle</option>
             <option value="Administrativo">Administrativo</option>
+            <option value="Agencia">Agencia</option>
         </select>
 
         <div class="seccion-header"><span class="numero">2</span> Inventario del Dispositivo</div>
 
         <div class="grid-3">
-            <div><label>Tipo:</label><input type="text" value="Handheld" readonly class="input-readonly" style="color:#B70000; font-weight:bold;"></div>
+            <div><label>Tipo:</label><input type="text" id="tipo_equipo" name="tipo_equipo" value="Handheld" readonly class="input-readonly" style="color:#B70000; font-weight:bold;"></div>
             <div>
                 <label>Marca:</label>
                 <select id="marca" name="marca" required>
                     <option value="">Seleccione...</option>
                     <option value="Zebra">Zebra</option>
+                    <option value="Cyrus">Cyrus</option>
                     <option value="Ulefone">Ulefone</option>
                 </select>
             </div>
@@ -86,6 +91,7 @@
                     <option value="TC27">TC27</option>
                     <option value="Armor 8">Armor 8</option>
                     <option value="Armor X8">Armor X8</option>
+                    <option value="CS22XA">CS22XA</option>
                 </select>
             </div>
         </div>
@@ -93,100 +99,156 @@
         <label>Serial (IMEI/SN):</label>
         <input type="text" id="serial" name="serial" required placeholder="Ingrese serial o IMEI">
 
-        <label style="margin-top:20px; color:#B70000; font-weight: bold;">✓ Estado de Accesorios:</label>
+        <div class="seccion-header" style="background:#B70000; margin-top:30px;"><span class="numero" style="background:#fff; color:#B70000;">✓</span> Estado de Accesorios</div>
         
         <div class="accesorios-grid">
-            <div class="accesorio-card">
+            
+            <div class="accesorio-card" id="card_terminal">
                 <div class="acc-header">Terminal Móvil</div>
-                <div class="acc-row"><span>¿Entrega?</span><div class="radio-group"><label><input type="radio" name="entrega_terminal" value="Si" onchange="toggleAcc('terminal')" checked>Si</label><label><input type="radio" name="entrega_terminal" value="No" onchange="toggleAcc('terminal')">No</label></div></div>
-                <div class="acc-row"><span>Estado:</span><select name="estado_terminal" id="estado_terminal"><option>Bueno</option><option>Regular</option><option>Malo</option><option>Nuevo</option></select></div>
-                <input type="text" name="obs_terminal" id="obs_terminal" class="obs-item" placeholder="Observaciones terminal...">
+                <div class="acc-row">
+                    <span class="acc-label">¿Entrega?</span>
+                    <div class="radio-group-mobile">
+                        <label><input type="radio" name="entrega_terminal" value="Si" onchange="toggleAccesorio('terminal')" checked>Si</label>
+                        <label><input type="radio" name="entrega_terminal" value="No" onchange="toggleAccesorio('terminal')">No</label>
+                    </div>
+                </div>
+                <div class="acc-row"><span class="acc-label">Estado:</span><select name="estado_terminal" id="estado_terminal"><option value="Bueno">Bueno</option><option value="Regular">Regular</option><option value="Malo">Malo</option></select></div>
+                <input type="text" id="obs_terminal" name="obs_terminal" class="obs-item" placeholder="Observación específica...">
             </div>
 
-            <div class="accesorio-card">
-                <div class="acc-header">Protector Pantalla</div>
-                <div class="acc-row"><span>¿Entrega?</span><div class="radio-group"><label><input type="radio" name="entrega_pantalla" value="Si" onchange="toggleAcc('pantalla')" checked>Si</label><label><input type="radio" name="entrega_pantalla" value="No" onchange="toggleAcc('pantalla')">No</label></div></div>
-                <div class="acc-row"><span>Estado:</span><select name="estado_pantalla" id="estado_pantalla"><option>Bueno</option><option>Regular</option><option>Malo</option></select></div>
-                <input type="text" name="obs_pantalla" id="obs_pantalla" class="obs-item" placeholder="Observaciones protector...">
+            <div class="accesorio-card" id="card_pantalla">
+                <div class="acc-header">Protector de Pantalla</div>
+                <div class="acc-row">
+                    <span class="acc-label">¿Entrega?</span>
+                    <div class="radio-group-mobile">
+                        <label><input type="radio" name="entrega_pantalla" value="Si" onchange="toggleAccesorio('pantalla')" checked>Si</label>
+                        <label><input type="radio" name="entrega_pantalla" value="No" onchange="toggleAccesorio('pantalla')">No</label>
+                    </div>
+                </div>
+                <div class="acc-row"><span class="acc-label">Estado:</span><select name="estado_pantalla" id="estado_pantalla"><option value="Bueno">Bueno</option><option value="Regular">Regular</option><option value="Malo">Malo</option></select></div>
+                <input type="text" id="obs_pantalla" name="obs_pantalla" class="obs-item" placeholder="Observación específica...">
             </div>
 
-            <div class="accesorio-card">
+            <div class="accesorio-card" id="card_estuche">
                 <div class="acc-header">Estuche</div>
-                <div class="acc-row"><span>¿Entrega?</span><div class="radio-group"><label><input type="radio" name="entrega_estuche" value="Si" onchange="toggleAcc('estuche')">Si</label><label><input type="radio" name="entrega_estuche" value="No" onchange="toggleAcc('estuche')" checked>No</label></div></div>
-                <div class="acc-row"><span>Estado:</span><select name="estado_estuche" id="estado_estuche"><option>Bueno</option><option>Regular</option></select></div>
-                <input type="text" name="obs_estuche" id="obs_estuche" class="obs-item" placeholder="Observaciones estuche...">
+                <div class="acc-row">
+                    <span class="acc-label">¿Entrega?</span>
+                    <div class="radio-group-mobile">
+                        <label><input type="radio" name="entrega_estuche" value="Si" onchange="toggleAccesorio('estuche')">Si</label>
+                        <label><input type="radio" name="entrega_estuche" value="No" onchange="toggleAccesorio('estuche')" checked>No</label>
+                    </div>
+                </div>
+                <div class="acc-row"><span class="acc-label">Estado:</span><select name="estado_estuche" id="estado_estuche"><option value="Bueno">Bueno</option><option value="Regular">Regular</option><option value="Malo">Malo</option></select></div>
+                <input type="text" id="obs_estuche" name="obs_estuche" class="obs-item" placeholder="Observación específica...">
             </div>
 
-            <div class="accesorio-card">
+            <div class="accesorio-card" id="card_bateria">
                 <div class="acc-header">Batería</div>
-                <div class="acc-row"><span>¿Entrega?</span><div class="radio-group"><label><input type="radio" name="entrega_bateria" value="Si" onchange="toggleAcc('bateria')" checked>Si</label><label><input type="radio" name="entrega_bateria" value="No" onchange="toggleAcc('bateria')">No</label></div></div>
-                <div class="acc-row"><span>Estado:</span><select name="estado_bateria" id="estado_bateria"><option>Bueno</option><option>Regular</option></select></div>
-                <input type="text" name="obs_bateria" id="obs_bateria" class="obs-item" placeholder="Observaciones batería...">
+                <div class="acc-row">
+                    <span class="acc-label">¿Entrega?</span>
+                    <div class="radio-group-mobile">
+                        <label><input type="radio" name="entrega_bateria" value="Si" onchange="toggleAccesorio('bateria')">Si</label>
+                        <label><input type="radio" name="entrega_bateria" value="No" onchange="toggleAccesorio('bateria')" checked>No</label>
+                    </div>
+                </div>
+                <div class="acc-row"><span class="acc-label">Estado:</span><select name="estado_bateria_item" id="estado_bateria_item"><option value="Bueno">Bueno</option><option value="Regular">Regular</option><option value="Malo">Malo</option></select></div>
+                <input type="text" id="obs_bateria" name="obs_bateria" class="obs-item" placeholder="Observación específica...">
             </div>
 
-            <div class="accesorio-card">
+            <div class="accesorio-card" id="card_cargador">
                 <div class="acc-header">Cargador</div>
-                <div class="acc-row"><span>¿Entrega?</span><div class="radio-group"><label><input type="radio" name="entrega_cargador" value="Si" onchange="toggleAcc('cargador')">Si</label><label><input type="radio" name="entrega_cargador" value="No" onchange="toggleAcc('cargador')" checked>No</label></div></div>
-                <div class="acc-row"><span>Estado:</span><select name="estado_cargador" id="estado_cargador"><option>Bueno</option><option>Regular</option></select></div>
-                <input type="text" name="obs_cargador" id="obs_cargador" class="obs-item" placeholder="Observaciones cargador...">
+                <div class="acc-row">
+                    <span class="acc-label">¿Entrega?</span>
+                    <div class="radio-group-mobile">
+                        <label><input type="radio" name="entrega_cargador" value="Si" onchange="toggleAccesorio('cargador')">Si</label>
+                        <label><input type="radio" name="entrega_cargador" value="No" onchange="toggleAccesorio('cargador')" checked>No</label>
+                    </div>
+                </div>
+                <div class="acc-row"><span class="acc-label">Estado:</span><select name="estado_cargador" id="estado_cargador"><option value="Bueno">Bueno</option><option value="Regular">Regular</option><option value="Malo">Malo</option></select></div>
+                <input type="text" id="obs_cargador" name="obs_cargador" class="obs-item" placeholder="Observación específica...">
             </div>
 
-            <div class="accesorio-card">
+            <div class="accesorio-card" id="card_cable">
                 <div class="acc-header">Cable USB</div>
-                <div class="acc-row"><span>¿Entrega?</span><div class="radio-group"><label><input type="radio" name="entrega_cable" value="Si" onchange="toggleAcc('cable')">Si</label><label><input type="radio" name="entrega_cable" value="No" onchange="toggleAcc('cable')" checked>No</label></div></div>
-                <div class="acc-row"><span>Estado:</span><select name="estado_cable" id="estado_cable"><option>Bueno</option></select></div>
-                <input type="text" name="obs_cable" id="obs_cable" class="obs-item" placeholder="Observaciones cable...">
+                <div class="acc-row">
+                    <span class="acc-label">¿Entrega?</span>
+                    <div class="radio-group-mobile">
+                        <label><input type="radio" name="entrega_cable" value="Si" onchange="toggleAccesorio('cable')">Si</label>
+                        <label><input type="radio" name="entrega_cable" value="No" onchange="toggleAccesorio('cable')" checked>No</label>
+                    </div>
+                </div>
+                <div class="acc-row"><span class="acc-label">Estado:</span><select name="estado_cable" id="estado_cable"><option value="Bueno">Bueno</option><option value="Regular">Regular</option><option value="Malo">Malo</option></select></div>
+                <input type="text" id="obs_cable" name="obs_cable" class="obs-item" placeholder="Observación específica...">
             </div>
 
-            <div class="accesorio-card">
-                <div class="acc-header">SIM Card</div>
-                <div class="acc-row"><span>¿Entrega?</span><div class="radio-group"><label><input type="radio" name="entrega_sim" value="Si" onchange="toggleAcc('sim')">Si</label><label><input type="radio" name="entrega_sim" value="No" onchange="toggleAcc('sim')" checked>No</label></div></div>
-                <div class="acc-row"><span>Estado:</span><select name="estado_sim" id="estado_sim"><option>Bueno</option></select></div>
-                <input type="text" name="obs_sim" id="obs_sim" class="obs-item" placeholder="Observaciones SIM...">
+            <div class="accesorio-card" id="card_sim">
+                <div class="acc-header">Sim Card</div>
+                <div class="acc-row">
+                    <span class="acc-label">¿Entrega?</span>
+                    <div class="radio-group-mobile">
+                        <label><input type="radio" name="entrega_sim" value="Si" onchange="toggleAccesorio('sim')">Si</label>
+                        <label><input type="radio" name="entrega_sim" value="No" onchange="toggleAccesorio('sim')" checked>No</label>
+                    </div>
+                </div>
+                <div class="acc-row"><span class="acc-label">Estado:</span><select name="estado_sim" id="estado_sim"><option value="Bueno">Bueno</option><option value="Regular">Regular</option><option value="Malo">Malo</option></select></div>
+                <input type="text" id="obs_sim" name="obs_sim" class="obs-item" placeholder="Observación específica...">
             </div>
+
         </div>
 
-        <label style="margin-top:20px;">Observaciones Generales:</label>
-        <textarea id="observaciones" name="observaciones" rows="3" placeholder="Comentarios generales..."></textarea>
+        <label style="margin-top:20px;">Accesorios Entregados (Escriba aquí):</label>
+        <textarea id="accesorios_adicionales" name="accesorios_adicionales" rows="2" placeholder="Ej: Protector de Pantalla, Estuche, Cargador..."></textarea>
+
+        <label style="margin-top:15px;">Observaciones Generales:</label>
+        <textarea id="observaciones" name="observaciones" rows="3" placeholder="Comentarios generales de la entrega..."></textarea>
 
         <div class="seccion-header"><span class="numero">3</span> Datos de Quien Entrega</div>
 
-        <label>Cédula (Analista):</label>
+        <label>Cédula (Quien Entrega):</label>
         <div class="input-group-search">
-            <input type="number" id="cedula_analista" name="cedula_analista" inputmode="numeric" required>
-            <button type="button" class="btn-search" onclick="buscarData('ana')">🔍 Buscar</button>
+            <input type="text" id="cedula_analista" name="cedula_analista" inputmode="numeric" required placeholder="Sin puntos">
+            <button type="button" class="btn-search" onclick="buscarAnalista()">
+                <span id="icono-busqueda-analista">🔍</span> Buscar
+            </button>
         </div>
-        <div id="msg-ana" class="msg-estado"></div>
+        <div id="msg-analista" class="msg-estado"></div>
 
         <label>Nombre Completo:</label><input type="text" id="nombre_analista" name="nombre_analista" readonly class="input-readonly" required>
 
         <div class="grid-2">
-            <div><label>Agencia:</label><input type="text" id="agencia_analista" name="agencia_analista" readonly class="input-readonly"></div>
-            <div><label>Teléfono:</label><input type="text" id="telefono_analista" name="telefono_analista" readonly class="input-readonly"></div>
+            <div><label>Agencia:</label><input type="text" id="agencia_analista" name="agencia_analista" readonly class="input-readonly" required></div>
+            <div><label>Teléfono:</label><input type="text" id="telefono_analista" name="telefono_analista" readonly class="input-readonly" required></div>
         </div>
 
         <div class="grid-3">
-            <div><label>Cód. SAP:</label><input type="number" id="sap_analista" name="sap_analista" required></div>
+            <div><label>Cód. SAP:</label><input type="text" id="codigo_sap_analista" name="codigo_sap_analista" required></div>
             <div><label>Cargo:</label><input type="text" id="cargo_analista" name="cargo_analista" required></div>
             <div><label>Zona:</label><input type="text" id="zona_analista" name="zona_analista" required></div>
         </div>
 
         <div class="seccion-header"><span class="numero">4</span> Firmas</div>
-        <div class="grid-2">
+        <div class="grid-2 firmas-wrapper">
             <div class="firma-card">
-                <label>Firma Quien Recibe</label>
+                <label>Quien Recibe</label>
                 <canvas id="canvas_colaborador" class="canvas-firma"></canvas>
                 <button type="button" class="btn-clear" onclick="limpiarFirma('colab')">Borrar Firma</button>
             </div>
             <div class="firma-card">
-                <label>Firma Quien Entrega</label>
+                <label>Quien Entrega</label>
                 <canvas id="canvas_analista" class="canvas-firma"></canvas>
                 <button type="button" class="btn-clear" onclick="limpiarFirma('ana')">Borrar Firma</button>
             </div>
         </div>
 
-        <button type="submit" id="btn-submit" class="btn-principal">GENERAR ACTA</button>
-        <div id="envio-status" style="text-align:center; margin-top:15px;"></div>
+        <div style="margin-top:20px; background:#f0f0f0; padding:15px; border-radius:6px;">
+            <label style="display:flex; align-items:center;">
+                <input type="checkbox" id="aceptaCondiciones" required style="width:20px; height:20px; margin-right:15px; margin-top:0;">
+                <span>Certifico que la información es correcta y acepto las condiciones.</span>
+            </label>
+        </div>
+
+        <button type="submit" class="btn-principal">GENERAR ACTA</button>
+        <div id="estado-envio" style="text-align:center; margin-top:15px; font-weight:bold; font-size:1.1rem;"></div>
 
     </form>
 </div>
