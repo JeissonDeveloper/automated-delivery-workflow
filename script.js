@@ -1,5 +1,5 @@
 // ============================================================================
-// JS OPTIMIZADO - RAMO v2.1 (Búsqueda Caché + Curvas Perfectas de Firma)
+// JS OPTIMIZADO - RAMO v2.2 (SOTI Integration + Fecha Colombia estricta)
 // ============================================================================
 
 const URL_BUSQUEDA = "https://defaultaf5eb6a454944a9ea659b79c92301b.8e.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/aed1a8e6527c409fa89020e534c2b5c5/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=eO1cDqSsJme9vmuEXbqUEC0sZqHjRmJHA_a0_nqgH1U";
@@ -15,7 +15,7 @@ function mostrarNotificacion(mensaje) {
     alert(mensaje); // Fallback nativo ultra-rápido para TC26, consume 0 recursos gráficos
 }
 
-function actualizarBarraProgreso() { /* Omitido visual para mejor rendimiento en Android gama media, enfocado en fluidez de formulario */ }
+function actualizarBarraProgreso() { /* Omitido visual para mejor rendimiento en Android gama media */ }
 
 function mostrarPreview(datos) {
     return new Promise((resolve) => {
@@ -41,9 +41,29 @@ function mostrarPreview(datos) {
     });
 }
 
+// ============================================================================
+// CORRECCIÓN: FECHA ESTRICTA COLOMBIA
+// ============================================================================
+function configurarFechaActual() {
+    const ahora = new Date();
+    const fechaColombia = new Date(ahora.toLocaleString("en-US", {timeZone: "America/Bogota"}));
+    const año = fechaColombia.getFullYear();
+    const mes = String(fechaColombia.getMonth() + 1).padStart(2, '0');
+    const dia = String(fechaColombia.getDate()).padStart(2, '0');
+    
+    document.getElementById("fecha").value = `${año}-${mes}-${dia}`;
+}
+
 document.addEventListener("DOMContentLoaded", () => {
-    const hoy = new Date().toLocaleString("en-US", {timeZone: "America/Bogota"});
-    document.getElementById("fecha").value = new Date(hoy).toISOString().split('T')[0];
+    configurarFechaActual();
+    
+    // ============================================================================
+    // CORRECCIÓN SOTI: Recepción de Serial sin alteraciones
+    // ============================================================================
+    const params = new URLSearchParams(window.location.search);
+    if(params.get("serial")) {
+        document.getElementById("serial").value = params.get("serial");
+    }
     
     sigColab = setupCanvas("canvas_colaborador");
     sigAna = setupCanvas("canvas_analista");
@@ -76,7 +96,6 @@ async function realizarBusqueda(cedula, tipo) {
     const sufijo = tipo === 'colab' ? 'colaborador' : 'analista';
     const msg = document.getElementById(`msg-${sufijo}`);
     
-    // 2. MAGIA DE CACHÉ: Responde instantáneo si ya se buscó hoy en esta pestaña
     if (cacheBusquedas[cleanCedula]) {
         msg.innerText = "⚡ Datos cargados de memoria local"; msg.style.color = "var(--success)";
         llenarCampos(cacheBusquedas[cleanCedula], tipo);
@@ -96,7 +115,7 @@ async function realizarBusqueda(cedula, tipo) {
 
         if (data && data.nombre_colaborador) {
             msg.innerText = "✅ Información encontrada"; msg.style.color = "var(--success)";
-            cacheBusquedas[cleanCedula] = data; // Guardar en caché para la próxima
+            cacheBusquedas[cleanCedula] = data; 
             llenarCampos(data, tipo);
         } else {
             msg.innerText = "❌ Cédula no registrada"; msg.style.color = "var(--error)";
@@ -122,11 +141,11 @@ function llenarCampos(data, tipo) {
 }
 
 // ============================================================================
-// FIRMAS CON CURVAS DE BÉZIER CUADRÁTICAS (Trazos armónicos)
+// FIRMAS CON CURVAS DE BÉZIER CUADRÁTICAS
 // ============================================================================
 function setupCanvas(id) {
     const c = document.getElementById(id);
-    const ctx = c.getContext("2d", { desynchronized: true }); // Acelera renderizado en Chrome Android
+    const ctx = c.getContext("2d", { desynchronized: true }); 
     let drawing = false, wasUsed = false;
     let points = [];
     
@@ -140,7 +159,6 @@ function setupCanvas(id) {
     const getPos = (e) => {
         const rect = c.getBoundingClientRect();
         const ev = e.touches ? e.touches[0] : e;
-        // Simulamos presión para el grosor si el hardware no lo soporta
         return { x: ev.clientX - rect.left, y: ev.clientY - rect.top, pressure: 0.6 };
     };
 
@@ -156,13 +174,11 @@ function setupCanvas(id) {
         e.preventDefault();
         points.push(getPos(e));
         
-        // 3. MAGIA DE CURVAS: Solo dibujamos cuando tenemos 3 puntos (Bézier Cuadrática)
         if(points.length >= 3) {
             const p1 = points[points.length - 3];
             const p2 = points[points.length - 2];
             const p3 = points[points.length - 1];
 
-            // Puntos medios para crear el arco de la curva suavizada
             const midX1 = (p1.x + p2.x) / 2;
             const midY1 = (p1.y + p2.y) / 2;
             const midX2 = (p2.x + p3.x) / 2;
@@ -170,10 +186,10 @@ function setupCanvas(id) {
 
             ctx.beginPath();
             ctx.moveTo(midX1, midY1);
-            ctx.quadraticCurveTo(p2.x, p2.y, midX2, midY2); // <--- Crea curvas fluidas en vez de líneas rotas
+            ctx.quadraticCurveTo(p2.x, p2.y, midX2, midY2); 
             
             ctx.strokeStyle = "rgba(10, 10, 10, 0.9)";
-            ctx.lineWidth = 1.2 + (p3.pressure * 2); // Grosor fluido
+            ctx.lineWidth = 1.2 + (p3.pressure * 2); 
             ctx.lineCap = "round";
             ctx.lineJoin = "round";
             ctx.stroke();
@@ -184,7 +200,7 @@ function setupCanvas(id) {
         if (!drawing) return;
         drawing = false;
         c.classList.remove('canvas-firmando');
-        points = []; // Reset array de puntos para el siguiente trazo
+        points = []; 
     };
 
     c.addEventListener("touchstart", start, {passive:false}); c.addEventListener("touchmove", move, {passive:false}); c.addEventListener("touchend", end);
@@ -249,6 +265,7 @@ document.getElementById("formulario").addEventListener("submit", async (e) => {
         setTimeout(() => {
             document.getElementById("formulario").reset();
             limpiarFirma('colab'); limpiarFirma('ana');
+            configurarFechaActual();
             enviandoFormulario = false; btnEnviar.disabled = false;
             document.getElementById("estado-envio").innerHTML = "";
         }, 2000);
@@ -260,6 +277,7 @@ document.getElementById("formulario").addEventListener("submit", async (e) => {
 });
 
 const soloNumeros = e => e.target.value = e.target.value.replace(/[^0-9]/g, "");
+// CORRECCIÓN SOTI: Se restaura la validación original del serial que permitía guiones y letras
 const serialValido = e => e.target.value = e.target.value.replace(/[^A-Za-z0-9\-_]/g, "").toUpperCase();
 
 ['cedula', 'cedula_analista', 'codigo_sap_analista', 'codigo_sap'].forEach(id => {
