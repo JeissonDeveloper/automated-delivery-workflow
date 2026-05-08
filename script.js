@@ -1,5 +1,5 @@
 // ============================================================================
-// JS FINAL - RAMO v2.3 (Caché + SOTI + Fecha Colombia + Firma Restaurada)
+// JS FINAL - RAMO v2.4 (Sin Caché, Consulta en Tiempo Real)
 // ============================================================================
 
 const URL_BUSQUEDA = "https://defaultaf5eb6a454944a9ea659b79c92301b.8e.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/aed1a8e6527c409fa89020e534c2b5c5/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=eO1cDqSsJme9vmuEXbqUEC0sZqHjRmJHA_a0_nqgH1U";
@@ -7,9 +7,6 @@ const URL_ENVIO = "https://defaultaf5eb6a454944a9ea659b79c92301b.8e.environment.
 
 let sigColab, sigAna;
 let enviandoFormulario = false;
-
-// 1. SISTEMA DE CACHÉ PARA BÚSQUEDAS ULTRA RÁPIDAS
-const cacheBusquedas = {}; 
 
 function mostrarNotificacion(mensaje) {
     alert(mensaje); // Fallback nativo ultra-rápido para TC26
@@ -41,9 +38,6 @@ function mostrarPreview(datos) {
     });
 }
 
-// ============================================================================
-// CORRECCIÓN: FECHA ESTRICTA COLOMBIA
-// ============================================================================
 function configurarFechaActual() {
     const ahora = new Date();
     const fechaColombia = new Date(ahora.toLocaleString("en-US", {timeZone: "America/Bogota"}));
@@ -57,9 +51,6 @@ function configurarFechaActual() {
 document.addEventListener("DOMContentLoaded", () => {
     configurarFechaActual();
     
-    // ============================================================================
-    // CORRECCIÓN SOTI: Recepción de Serial sin alteraciones
-    // ============================================================================
     const params = new URLSearchParams(window.location.search);
     if(params.get("serial")) {
         document.getElementById("serial").value = params.get("serial");
@@ -85,7 +76,7 @@ window.toggleAccesorio = (item) => {
 };
 
 // ============================================================================
-// LÓGICA DE BÚSQUEDA ACELERADA (Caché Memoria)
+// LÓGICA DE BÚSQUEDA EN TIEMPO REAL (Caché Eliminado)
 // ============================================================================
 window.buscarColaborador = () => realizarBusqueda(document.getElementById("cedula").value, 'colab');
 window.buscarAnalista = () => realizarBusqueda(document.getElementById("cedula_analista").value, 'analista');
@@ -96,17 +87,18 @@ async function realizarBusqueda(cedula, tipo) {
     const sufijo = tipo === 'colab' ? 'colaborador' : 'analista';
     const msg = document.getElementById(`msg-${sufijo}`);
     
-    if (cacheBusquedas[cleanCedula]) {
-        msg.innerText = "⚡ Datos cargados de memoria"; msg.style.color = "var(--success)";
-        llenarCampos(cacheBusquedas[cleanCedula], tipo);
-        return;
-    }
+    msg.innerText = "Consultando base de datos..."; msg.style.color = "var(--text-muted)";
 
-    msg.innerText = "Consultando..."; msg.style.color = "var(--text-muted)";
+    // Engaño al navegador agregando la hora exacta para forzar una consulta fresca
+    const urlSinCache = URL_BUSQUEDA + "&t=" + new Date().getTime();
 
     try {
-        const resp = await fetch(URL_BUSQUEDA, {
-            method: "POST", headers: {"Content-Type":"application/json"},
+        const resp = await fetch(urlSinCache, {
+            method: "POST", 
+            headers: {
+                "Content-Type":"application/json",
+                "Cache-Control": "no-cache, no-store, must-revalidate" // Bloqueo extra de caché
+            },
             body: JSON.stringify({ cedula: cleanCedula })
         });
         
@@ -115,7 +107,6 @@ async function realizarBusqueda(cedula, tipo) {
 
         if (data && data.nombre_colaborador) {
             msg.innerText = "✅ Información encontrada"; msg.style.color = "var(--success)";
-            cacheBusquedas[cleanCedula] = data; 
             llenarCampos(data, tipo);
         } else {
             msg.innerText = "❌ Cédula no registrada"; msg.style.color = "var(--error)";
@@ -151,7 +142,6 @@ function setupCanvas(id) {
     let imageData = null;
     let points = [];
     
-    // Soporte para pantallas Retina (High-DPI)
     const resize = () => {
         const ratio = Math.max(window.devicePixelRatio || 1, 1);
         if (wasUsed && c.width > 0) imageData = ctx.getImageData(0, 0, c.width, c.height);
@@ -163,7 +153,6 @@ function setupCanvas(id) {
         if (imageData) ctx.putImageData(imageData, 0, 0);
     };
     
-    // Observador para cambios de tamaño responsivo
     new ResizeObserver(() => resize()).observe(c);
     resize();
 
@@ -202,7 +191,6 @@ function setupCanvas(id) {
         const currentPos = getPos(e);
         points.push(currentPos);
         
-        // Estabilización simple entre últimos 2 puntos
         if(points.length > 1) {
             drawLine(points[points.length-2], currentPos, currentPos.pressure);
         }
@@ -215,7 +203,6 @@ function setupCanvas(id) {
         c.classList.remove('canvas-firmando');
     };
 
-    // APIs de punteros modernas (Soporta Mouse, Touch, Apple Pencil de forma unificada)
     c.style.touchAction = "none";
     c.addEventListener("pointerdown", start); 
     c.addEventListener("pointermove", move); 
@@ -301,7 +288,6 @@ document.getElementById("formulario").addEventListener("submit", async (e) => {
 });
 
 const soloNumeros = e => e.target.value = e.target.value.replace(/[^0-9]/g, "");
-// CORRECCIÓN SOTI: Se restaura la validación original del serial que permitía guiones y letras
 const serialValido = e => e.target.value = e.target.value.replace(/[^A-Za-z0-9\-_]/g, "").toUpperCase();
 
 ['cedula', 'cedula_analista', 'codigo_sap_analista', 'codigo_sap'].forEach(id => {
