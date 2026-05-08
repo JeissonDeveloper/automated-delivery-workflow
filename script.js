@@ -1,5 +1,5 @@
 // ============================================================================
-// JS OPTIMIZADO - RAMO v2.2 (SOTI Integration + Fecha Colombia estricta)
+// JS FINAL - RAMO v2.3 (Caché + SOTI + Fecha Colombia + Firma Restaurada)
 // ============================================================================
 
 const URL_BUSQUEDA = "https://defaultaf5eb6a454944a9ea659b79c92301b.8e.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/aed1a8e6527c409fa89020e534c2b5c5/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=eO1cDqSsJme9vmuEXbqUEC0sZqHjRmJHA_a0_nqgH1U";
@@ -12,10 +12,10 @@ let enviandoFormulario = false;
 const cacheBusquedas = {}; 
 
 function mostrarNotificacion(mensaje) {
-    alert(mensaje); // Fallback nativo ultra-rápido para TC26, consume 0 recursos gráficos
+    alert(mensaje); // Fallback nativo ultra-rápido para TC26
 }
 
-function actualizarBarraProgreso() { /* Omitido visual para mejor rendimiento en Android gama media */ }
+function actualizarBarraProgreso() { /* Omitido visual para mejor rendimiento */ }
 
 function mostrarPreview(datos) {
     return new Promise((resolve) => {
@@ -85,7 +85,7 @@ window.toggleAccesorio = (item) => {
 };
 
 // ============================================================================
-// LÓGICA DE BÚSQUEDA ACELERADA
+// LÓGICA DE BÚSQUEDA ACELERADA (Caché Memoria)
 // ============================================================================
 window.buscarColaborador = () => realizarBusqueda(document.getElementById("cedula").value, 'colab');
 window.buscarAnalista = () => realizarBusqueda(document.getElementById("cedula_analista").value, 'analista');
@@ -97,7 +97,7 @@ async function realizarBusqueda(cedula, tipo) {
     const msg = document.getElementById(`msg-${sufijo}`);
     
     if (cacheBusquedas[cleanCedula]) {
-        msg.innerText = "⚡ Datos cargados de memoria local"; msg.style.color = "var(--success)";
+        msg.innerText = "⚡ Datos cargados de memoria"; msg.style.color = "var(--success)";
         llenarCampos(cacheBusquedas[cleanCedula], tipo);
         return;
     }
@@ -141,25 +141,52 @@ function llenarCampos(data, tipo) {
 }
 
 // ============================================================================
-// FIRMAS CON CURVAS DE BÉZIER CUADRÁTICAS
+// FIRMAS RESTAURADAS (Motor v2.0 - Ultra Estable y Fluido)
 // ============================================================================
 function setupCanvas(id) {
     const c = document.getElementById(id);
-    const ctx = c.getContext("2d", { desynchronized: true }); 
-    let drawing = false, wasUsed = false;
+    const ctx = c.getContext("2d", { willReadFrequently: true }); 
+    let drawing = false;
+    let wasUsed = false;
+    let imageData = null;
     let points = [];
     
+    // Soporte para pantallas Retina (High-DPI)
     const resize = () => {
-        c.width = c.offsetWidth; 
-        c.height = 160; 
+        const ratio = Math.max(window.devicePixelRatio || 1, 1);
+        if (wasUsed && c.width > 0) imageData = ctx.getImageData(0, 0, c.width, c.height);
+        
+        c.width = c.offsetWidth * ratio; 
+        c.height = 160 * ratio;
+        ctx.scale(ratio, ratio); 
+        
+        if (imageData) ctx.putImageData(imageData, 0, 0);
     };
-    window.addEventListener("resize", resize);
+    
+    // Observador para cambios de tamaño responsivo
+    new ResizeObserver(() => resize()).observe(c);
     resize();
+
+    const drawLine = (p1, p2, pressure = 0.5) => {
+        const width = 1.5 + (pressure * 1.5);
+        ctx.strokeStyle = "rgba(10, 10, 10, 0.95)";
+        ctx.lineWidth = width;
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+        
+        ctx.beginPath();
+        ctx.moveTo(p1.x, p1.y);
+        ctx.lineTo(p2.x, p2.y);
+        ctx.stroke();
+    };
 
     const getPos = (e) => {
         const rect = c.getBoundingClientRect();
-        const ev = e.touches ? e.touches[0] : e;
-        return { x: ev.clientX - rect.left, y: ev.clientY - rect.top, pressure: 0.6 };
+        return { 
+            x: e.clientX - rect.left, 
+            y: e.clientY - rect.top,
+            pressure: e.pressure !== 0.5 && e.pressure > 0 ? e.pressure : 0.5 
+        };
     };
 
     const start = (e) => {
@@ -172,41 +199,38 @@ function setupCanvas(id) {
     const move = (e) => {
         if(!drawing) return;
         e.preventDefault();
-        points.push(getPos(e));
+        const currentPos = getPos(e);
+        points.push(currentPos);
         
-        if(points.length >= 3) {
-            const p1 = points[points.length - 3];
-            const p2 = points[points.length - 2];
-            const p3 = points[points.length - 1];
-
-            const midX1 = (p1.x + p2.x) / 2;
-            const midY1 = (p1.y + p2.y) / 2;
-            const midX2 = (p2.x + p3.x) / 2;
-            const midY2 = (p2.y + p3.y) / 2;
-
-            ctx.beginPath();
-            ctx.moveTo(midX1, midY1);
-            ctx.quadraticCurveTo(p2.x, p2.y, midX2, midY2); 
-            
-            ctx.strokeStyle = "rgba(10, 10, 10, 0.9)";
-            ctx.lineWidth = 1.2 + (p3.pressure * 2); 
-            ctx.lineCap = "round";
-            ctx.lineJoin = "round";
-            ctx.stroke();
+        // Estabilización simple entre últimos 2 puntos
+        if(points.length > 1) {
+            drawLine(points[points.length-2], currentPos, currentPos.pressure);
         }
     };
     
     const end = (e) => { 
         if (!drawing) return;
+        e.preventDefault();
         drawing = false;
         c.classList.remove('canvas-firmando');
-        points = []; 
     };
 
-    c.addEventListener("touchstart", start, {passive:false}); c.addEventListener("touchmove", move, {passive:false}); c.addEventListener("touchend", end);
-    c.addEventListener("mousedown", start); c.addEventListener("mousemove", move); window.addEventListener("mouseup", end);
+    // APIs de punteros modernas (Soporta Mouse, Touch, Apple Pencil de forma unificada)
+    c.style.touchAction = "none";
+    c.addEventListener("pointerdown", start); 
+    c.addEventListener("pointermove", move); 
+    c.addEventListener("pointerup", end);
+    c.addEventListener("pointercancel", end);
+    c.addEventListener("pointerout", end);
     
-    return { c, isSigned: () => wasUsed, reset: () => { wasUsed = false; ctx.clearRect(0, 0, c.width, c.height); } };
+    return {
+        c, ctx, 
+        isSigned: () => wasUsed, 
+        reset: () => { 
+            wasUsed = false; drawing = false; imageData = null; points = [];
+            ctx.clearRect(0, 0, c.width, c.height);
+        }
+    };
 }
 
 window.limpiarFirma = (quien) => { (quien === 'colab' ? sigColab : sigAna).reset(); };
