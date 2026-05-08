@@ -498,3 +498,48 @@ document.getElementById("formulario").addEventListener("submit", async (e) => {
         estadoDiv.style.color = "var(--success)";
         mostrarNotificacion("Acta generada y enviada correctamente", 'success');
         lanzarConfeti();
+        borrarDatosLocales();
+        
+        setTimeout(() => {
+            document.getElementById("formulario").reset();
+            limpiarFirma('colab'); limpiarFirma('ana');
+            configurarFechaActual();
+            ['terminal', 'pantalla', 'estuche', 'bateria', 'cargador', 'cable', 'sim'].forEach(item => toggleAccesorio(item));
+            enviandoFormulario = false; btnEnviar.disabled = false; btnEnviar.classList.remove('btn-enviando');
+            estadoDiv.innerHTML = ""; actualizarBarraProgreso();
+        }, 3500);
+        
+    } catch(err) {
+        console.error(err);
+        estadoDiv.innerHTML = "❌ Error al enviar. Verifique la conexión."; estadoDiv.style.color = "var(--error)";
+        mostrarNotificacion("Error al conectar con el servidor", 'error');
+        enviandoFormulario = false; btnEnviar.disabled = false; btnEnviar.classList.remove('btn-enviando');
+    }
+});
+
+// Entradas y Eventos Generales
+const soloNumeros = e => e.target.value = e.target.value.replace(/[^0-9]/g, "");
+const serialValido = e => e.target.value = e.target.value.replace(/[^A-Za-z0-9\-_]/g, "").toUpperCase();
+
+['cedula', 'cedula_analista', 'codigo_sap_analista', 'codigo_sap'].forEach(id => {
+    const el = document.getElementById(id);
+    if(el) el.addEventListener("input", soloNumeros);
+});
+document.getElementById("serial").addEventListener("input", serialValido);
+
+const checkLen = (id, minLen) => {
+    const el = document.getElementById(id);
+    el.addEventListener("input", function() { this.classList.toggle('campo-completado', this.value.length >= minLen); this.classList.remove('campo-error'); });
+    el.addEventListener("blur", function() { if(this.value.length > 0 && this.value.length < minLen) this.classList.add('campo-error'); });
+};
+checkLen("cedula", 7); checkLen("serial", 5);
+
+document.getElementById("correo_colaborador").addEventListener("blur", function() {
+    const correo = this.value.trim();
+    if (correo && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correo)) {
+        this.classList.add('campo-error'); this.classList.remove('campo-completado');
+        mostrarNotificacion("Correo inválido (use @ y dominio)", 'warning');
+    } else if (correo) {
+        this.classList.add('campo-completado'); this.classList.remove('campo-error');
+    }
+});
